@@ -1,4 +1,4 @@
-/* bridge.dac594be54b1.js */
+/* bridge.a4351a036091.js */
 print = printT = console.log;
 
 math = Math;
@@ -25,6 +25,9 @@ function isString(value) {
 }
 function isTable(value) {
 	return typeof value==='object'
+}
+function isNumber(value) {
+	return typeof value==='number'
 }
 function LuaTrue(bool) {
 	if (typeof bool==='undefined' || bool===false || bool==null) return false;	
@@ -142,67 +145,126 @@ var Color = {
 var Renderer = {
 	image: null,
 	bitmap: null,
+	canvas: null,
+	context: null,
+	imagedata: null,
+	clip: null,
 	stack:[],
-	pixels:[],
 };
-
-function ColorToFillStyle(color) {
-	switch(color) {
-	case Color.White:
-		return 'rgb(255,255,255)';
-		break;
-	case Color.Black:
-		return 'rgb(0,0,0)';
-		break;
-	default: // Color.Clear
-		return 'rgba(0,0,0,0.0)';
-		break;
-	}
-}
 
 function Bitmap(width, height, color) {
 	this.width = width;
 	this.height = height;
 	this.color = Color.Black;
 	this.backgroundColor = color;
-	this.data = null;
+
+	var data = new Uint8Array(width * height);
+	this.data = data;
 	
-	var canvas = document.createElement('canvas');
-	canvas.width = width;
-	canvas.height = height;
-	var context = canvas.getContext('2d');
-	
-	this.canvas = canvas;
-	this.context = context;
-	
-	this.commitData = function() {
-		this.data = context.getImageData(0,0,width,height);
-	}
 	this.clear = function() {
-		if (this.backgroundColor==Color.Clear) {
-			context.clearRect(0,0,width,height);
+		for (var i=0; i<data.length; i++) {
+			data[i] = this.backgroundColor;
 		}
-		else {
-			context.fillStyle = ColorToFillStyle(this.backgroundColor);
-			context.fillRect(0,0,width,height);
-			context.fillStyle = ColorToFillStyle(this.color);
+	};
+
+    this.drawPixel = function(x, y) {
+		let cx,cy,cw,ch;
+		let clip = Renderer.clip;
+		if (clip) {
+			cx = clip.x;
+			cy = clip.y;
+			cw = clip.width;
+			ch = clip.height;
 		}
-		this.commitData();
-	}
-	this.fillRect = function(x,y,width,height) {
-		context.fillStyle = ColorToFillStyle(this.color);
-		context.fillRect(x,y,width,height);
-		this.commitData();
-	}
+		else cx = cy = cw = ch = 0;
+
+        if (cw && ch && (x < cx || x >= cx + cw || y < cy || y >= cy + ch)) {
+            return;
+        }
+        data[y * this.width + x] = this.color;
+    }
 	
-	this.toDataURL = function() {
-		return canvas.toDataURL('image/png');
+	this.fillRect = function(x,y,width,height) {
+		let cx,cy,cw,ch;
+		let clip = Renderer.clip;
+		if (clip) {
+			cx = clip.x;
+			cy = clip.y;
+			cw = clip.width;
+			ch = clip.height;
+		}
+		else cx = cy = cw = ch = 0;
+		
+		var w = this.width;
+		var c = this.color;
+		for (var oy=0; oy<height; oy++) {
+			for (var ox=0; ox<width; ox++) {
+				if (cw && ch && (x+ox<cx || x+ox>=cx+cw || y+oy<cy || y+oy>=cy+ch)) continue; // clipped
+				
+				var i = (y + oy) * w + (x + ox);
+				data[i] = c;
+			}
+		}
+	};
+	
+	this.drawBitmap = function(bitmap,x,y) {
+		let src = bitmap;
+		let dst = Renderer.bitmap;
+	
+		let sx = 0;
+		let sy = 0;
+		let sp = src.width
+		let sw = src.width;
+		let sh = src.height;
+	
+		let dx = x|0;
+		let dy = y|0;
+		let dp = dst.width;
+		
+		let cx,cy,cw,ch;
+		let clip = Renderer.clip;
+		if (clip) {
+			cx = clip.x;
+			cy = clip.y;
+			cw = clip.width;
+			ch = clip.height;
+		}
+		else cx = cy = cw = ch = 0;
+		
+		for (var oy=0; oy<sh; oy++) {
+			for (var ox=0; ox<sw; ox++) {
+				if (cw && ch && (dx+ox<cx || dx+ox>=cx+cw || dy+oy<cy || dy+oy>=cy+ch)) continue; // clipped
+				
+				var di = (dy + oy) * dp + (dx + ox);
+				var si = (sy + oy) * sp + (sx + ox);
+				var c = src.data[si];
+				if (c==Color.Clear) continue;
+				dst.data[di] = c;
+			}
+		}
+	};
+	
+	this.tileBitmap = function(bitmap,x,y,width,height) {
+		x |= 0;
+		y |= 0;
+
+		var w = bitmap.width;
+		var h = bitmap.height;
+		var cols = Math.ceil(width / w);
+		var rows = Math.ceil(height / h);
+		var dst = Renderer.bitmap;
+		var src = bitmap;
+		for (var oy=0; oy<rows; oy++) {
+			for (var ox=0; ox<cols; ox++) {
+				dst.drawBitmap(src,x+ox*w,y+oy*h);
+			}
+		}
 	};
 
 	this.clear();
 }
 
-function setupContext(id) { 
+function setupContext(id) {
 	var roomWidth = roomTilesWide * tileWidth;
 	var roomHeight = roomTilesHigh * tileHeight;
 	
@@ -217,15 +279,53 @@ function setupContext(id) {
 	wrapper.appendChild(backing);
 	backing.appendChild(image);
 	
+	var canvas = document.createElement('canvas');
+	canvas.width = roomWidth;
+	canvas.height = roomHeight;
+	var context = canvas.getContext('2d');
+	var imagedata = context.getImageData(0,0,canvas.width,canvas.height);
+	
 	Renderer.image = image;
 	Renderer.bitmap = Renderer.stack[0] = new Bitmap(roomWidth,roomHeight,Color.Black);
+	Renderer.canvas = canvas;
+	Renderer.context = context;
+	Renderer.imagedata = imagedata;
 	
-	Renderer.pixels[Color.White] = new Bitmap(1,1,Color.White);
-	Renderer.pixels[Color.Black] = new Bitmap(1,1,Color.Black);
-	Renderer.pixels[Color.Clear] = new Bitmap(1,1,Color.Clear);
 }
 function renderContext() {
-	Renderer.image.src = Renderer.bitmap.toDataURL();
+	let width = Renderer.bitmap.width;
+	let height = Renderer.bitmap.height;
+	let src = Renderer.bitmap.data;
+	let dst = Renderer.imagedata.data;
+	
+	for (var y=0; y<height; y++) {
+		for (var x=0; x<width; x++) {
+			var i = y * width + x;
+			var j = i * 4;
+			switch (src[i]) {
+				case Color.White:
+					dst[j + 0] = 255;
+					dst[j + 1] = 255;
+					dst[j + 2] = 255;
+					dst[j + 3] = 255;
+					break;
+				case Color.Black:
+					dst[j + 0] = 0;
+					dst[j + 1] = 0;
+					dst[j + 2] = 0;
+					dst[j + 3] = 255;
+					break;
+				case Color.Clear:
+					dst[j + 0] = 0;
+					dst[j + 1] = 0;
+					dst[j + 2] = 0;
+					dst[j + 3] = 0;
+					break;
+			}
+		}
+	}
+	Renderer.context.putImageData(Renderer.imagedata,0,0);
+	Renderer.image.src = Renderer.canvas.toDataURL('image/png');
 }
 
 // --------------------------------------------------------
@@ -235,7 +335,6 @@ function pushContext(bitmap) {
 	Renderer.bitmap = bitmap;
 }
 function popContext() {
-	Renderer.bitmap.commitData();
 	Renderer.stack.pop();
 	Renderer.bitmap = Renderer.stack[Renderer.stack.length-1];
 }
@@ -244,34 +343,21 @@ function clearContext() {
 }
 function setColor(color) {
 	Renderer.bitmap.color = color;
-	Renderer.bitmap.context.fillStyle = ColorToFillStyle(color);
 }
 function setBackgroundColor(color) {
 	Renderer.bitmap.backgroundColor = color;
 }
 function drawPixel(x,y) {
-	Renderer.bitmap.context.putImageData(Renderer.pixels[Renderer.bitmap.color].data,x|0,y|0);
+    Renderer.bitmap.drawPixel(x, y);
 }
 function newBitmap(width,height,color) {
 	return new Bitmap(width|0,height|0,color);
 }
 function drawBitmap(bitmap,x,y) {
-	Renderer.bitmap.context.drawImage(bitmap.canvas,x|0,y|0);
+	Renderer.bitmap.drawBitmap(bitmap,x|0,y|0);
 }
 function tileBitmap(bitmap,x,y,width,height) {
-	var w = bitmap.width;
-	var h = bitmap.height;
-	var cols = Math.ceil(width / w);
-	var rows = Math.ceil(height / h);
-	var context = Renderer.bitmap.context;
-	var image = bitmap.canvas;
-	x |= 0;
-	y |= 0;
-	for (var oy=0; oy<rows; oy++) {
-		for (var ox=0; ox<cols; ox++) {
-			context.drawImage(image,x+ox*w,y+oy*h);
-		}
-	}
+	Renderer.bitmap.tileBitmap(bitmap,x|0,y|0,width|0,height|0);
 }
 function clearBitmap(bitmap) {
 	bitmap.clear();
@@ -279,16 +365,12 @@ function clearBitmap(bitmap) {
 function fillRect(x,y,width,height) {
 	Renderer.bitmap.fillRect(x|0,y|0,width|0,height|0);
 }
-function setClipRect(x,y,width,height) {
-	var context = Renderer.bitmap.context;
-	context.save();
 
-	var region = new Path2D();
-	region.rect(x|0,y|0,width|0,height|0);
-	context.clip(region);
+function setClipRect(x,y,width,height) {
+	Renderer.clip = {x:x|0,y:y|0,width:width|0,height:height|0};
 }
 function clearClipRect() {
-	Renderer.bitmap.context.restore();
+	Renderer.clip = null;
 }
 
 function invert(flag) {
