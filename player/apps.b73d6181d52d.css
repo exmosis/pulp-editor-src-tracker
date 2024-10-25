@@ -1,0 +1,358 @@
+.navbar-top
+{
+    font-family: "Roobert";
+    font-size: 22px !important;
+ 	padding: 0 36px;
+    position: relative;
+    z-index: 99;
+	width: auto;
+	max-width: none;
+    background-color: transparent;
+}
+
+#navbar {
+	min-width: 800px;
+	border-bottom: 1px solid var(--ui-color-primary-alpha-20);
+}
+
+.navbar-top ul
+{
+    list-style: none;
+    display: grid;
+	font-size: inherit !important;
+    grid-template-columns: auto 1fr auto auto auto auto auto;
+    grid-gap: 0;
+    margin: 0;
+	padding: 0;
+    position: relative;
+	box-sizing: content-box;
+	width: 100%;
+	max-width: none;
+}
+
+.navbar-top ul
+{
+    grid-template-columns: auto 1fr auto;
+}
+
+.navbar-top li
+{
+    margin: 0;
+	padding: 0.375em 0.5em 0.5em 0.5em;
+    position: relative;
+	font-size: 0.85em;
+    font-weight: 700;
+    letter-spacing: -0.0075em;
+    border-radius: 1em;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-gap: 0.2em;
+    align-items: center;
+    justify-items: start;
+}
+
+.navbar-top li a
+{
+    text-decoration: none;
+}
+
+.navbar-top li a::after
+{
+    content: "";
+    position: absolute;
+    display: block;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+}
+
+.navbar-top li::before
+{
+    content: '';
+    display: inline-block;
+    top: 0;
+    left: 0;
+    width: 1em;
+    height: 1em;
+    -webkit-mask-size: contain;
+    -webkit-mask-position: 0% 50%;
+    -webkit-mask-repeat: no-repeat;
+	background-color: var(--ui-color-primary);
+}
+
+.navbar-top li#nav-home
+{
+	top: 0;
+    width: 6em;
+    height: 2em;
+    border-radius: 0;
+	-webkit-mask-size: auto 22px;
+	-webkit-mask-position: 0% 50%;
+    -webkit-mask-repeat: no-repeat;
+    background-color: var(--ui-color-secondary);
+    position: relative;
+}
+
+li#nav-home::before {
+	-webkit-mask-image: none;
+}
+
+body.caps .navbar-top li#nav-home
+{
+    -webkit-mask-image: url("../caps/images/playdate-caps.cec700e682ac.svg");
+}
+
+body.pulp .navbar-top li#nav-home
+{
+    -webkit-mask-image: url("../pulp/images/playdate-pulp.a92fa74f250e.svg");
+}
+
+body.pulpscript .navbar-top li#nav-home
+{
+    -webkit-mask-image: url("../pulp/images/playdate-pulpscript.9856093fa562.svg");
+}
+
+.navbar-top li#nav-home a
+{
+    position: absolute;
+    height: 100%;
+    width: 50%;
+    top: 0;
+}
+
+.navbar-top li#nav-home a[href="/"]
+{
+    left: 0;
+}
+
+.navbar-top li#nav-home a[href="/pulp/"],
+.navbar-top li#nav-home a[href="/caps/"]
+{
+    right: 0;
+}
+
+/* Hamburger Menu Active */
+
+input#whopper
+{
+    -webkit-appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+
+    position: relative;
+    display: block;
+    visibility: visible;
+
+    font: inherit;
+    font-weight: 700;
+    color: var(--ui-color-primary);
+    background-color: transparent;
+
+    align-items: center;
+    align-self: center;
+    justify-items: start;
+    grid-column: 5;
+    grid-row: 1;
+
+    width: 2em;
+    height: 2em;
+    cursor: pointer;
+    z-index: 111111;
+    pointer-events: all;
+}
+
+input#whopper::before
+{
+    content: '';
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    -webkit-mask-size: contain;
+    -webkit-mask-position: 0% 50%;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-image: url("../images/menu.a8614d532947.svg");
+    background-color: var(--ui-color-primary);
+    background-size: contain;
+}
+
+label.whopper
+{
+    display: none !important;
+}
+
+div.whopper
+{
+
+    display: grid;
+    position: absolute;
+    grid-gap: 0.5em;
+    top: -100vh;
+    right: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    padding: 0em 2.5em 0.5em 0.5em;
+    background: var(--ui-color-primary);
+    color: var(--ui-color-secondary);
+    border-radius: 0 0 0.25em 0.25em;
+    border: 0.2rem solid var(--ui-color-primary);
+    border-top: 0;
+
+    transition-duration: 150ms;
+    transition-timing-function: ease-in-out;
+    transition-property: top;
+    pointer-events: none;
+}
+
+input#whopper:checked + div.whopper
+{
+    top: 0;
+    pointer-events: all;
+    background: var(--ui-color-primary);
+}
+
+input#whopper:checked + div.whopper > li::before
+{
+    background-color: var(--ui-color-secondary);
+}
+
+input#whopper:checked::before
+{
+    background: var(--ui-color-key);
+}
+
+input#whopper:checked + div.whopper > li:hover
+{
+    color: var(--ui-color-key);
+}
+
+input#whopper:checked + div.whopper > li:hover::before
+{
+    background-color: var(--ui-color-key);
+}
+
+li#nav-games,
+li#nav-news,
+li#nav-dev,
+li#nav-help,
+li#nav-account
+{
+    grid-column: 1;
+}
+
+li#nav-buy
+{
+    grid-row: 1;
+    grid-column: 4;
+    align-self: center;
+    justify-self: center;
+    white-space: nowrap;
+    background-color: var(--ui-color-key);
+    color: var(--ui-color-primary);
+}
+
+.navbar-top li#nav-buy::before
+{
+    background-color: var(--ui-color-primary);
+}
+
+li#nav-games
+{
+    grid-row: 1;
+}
+
+li#nav-games
+{
+    grid-row: 2;
+}
+
+li#nav-dev
+{
+    grid-row: 3;
+}
+
+li#nav-help
+{
+    grid-row: 4;
+}
+
+li#nav-account
+{
+    grid-row: 5;
+}
+
+li#nav-pulp-help
+{
+    grid-column: 3;
+}
+
+
+li#nav-home
+{
+    grid-row: 1;
+    grid-column: 1;
+    /* top: 0.125em; */
+}
+
+li#nav-news::before
+{
+    -webkit-mask-image: url("../images/toolbar-icon-news.ef543d84bf45.svg");
+}
+
+li#nav-games::before
+{
+    -webkit-mask-image: url("../images/toolbar-icon-games.52c22c9208eb.svg");
+}
+
+li#nav-dev::before
+{
+    -webkit-mask-image: url("../images/toolbar-icon-dev.facb0dc49bac.svg");
+}
+
+li#nav-help::before,
+li#nav-pulp-help::before
+
+{
+    -webkit-mask-image: url("../images/toolbar-icon-help.b1ee519a9db6.svg");
+}
+
+li#nav-account::before
+{
+    -webkit-mask-image: url("../images/toolbar-icon-account.796d44df7488.svg");
+}
+
+li#nav-buy::before
+{
+    -webkit-mask-image: url("../images/toolbar-icon-shop.0ed32500dd3b.svg");
+}
+
+li#nav-home
+{
+    position: relative;
+    color: transparent;
+}
+
+li#nav-home::before
+{
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+/* ---------------- */
+/*!---- FOOTER ---- */
+/* ---------------- */
+
+footer ul
+{
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1em;
+    text-align: center;
+}
+
+
