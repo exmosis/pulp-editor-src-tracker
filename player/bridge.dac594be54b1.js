@@ -1,3 +1,4 @@
+/* bridge.dac594be54b1.js */
 print = printT = console.log;
 
 math = Math;

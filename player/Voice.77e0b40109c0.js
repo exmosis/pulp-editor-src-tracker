@@ -1,3 +1,4 @@
+/* Voice.77e0b40109c0.js */
 var VoiceType = {
 	Sine: 0,
 	Square: 1,
