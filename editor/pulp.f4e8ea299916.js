@@ -67,6 +67,12 @@ function tidyTail(arr) {
 	}
 }
 
+function getFirstValidIndex(arr) {
+	for (var i=0; i<arr.length; i++) {
+		if (arr[i]) return i;
+	}
+	return -1;
+}
 function getFallbackIndex(arr, value) {
 	var i = arr.indexOf(value);
 	
@@ -1577,6 +1583,15 @@ function json2ps(json) {
 	function parseSwap(expr) {
 		Parser.value += 'swap ';
 		parseValue(expr[1]);
+		if (expr[2]) {
+			Parser.value += ' at ';
+			var rect = expr[2];
+			parseValue(rect[1]);
+			for (var i=2; i<rect.length; i++) {
+				Parser.value += ',';
+				parseValue(rect[i]);
+			}
+		}
 	}
 	function parseTell(expr) {
 		Parser.value += 'tell ';
@@ -2417,15 +2432,21 @@ function ps2json(psString) {
 		block.push(['emit', event]);
 	}
 	function parseSwap(line) {
-		var swap = line.match(/^swap\s+((?:event\.)?[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+|"[^"]+")$/);
-		if (!swap) return parseError('Invalid swap statement');
-		
-		var tile = parseValue(swap[1]);
+		var match = line.match(/^swap\s+((?:event\.)?[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+|"[^"]+")(?:\s+at\s+((?:(?:event\.)?[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+)\s*(?:,\s*(?:(?:event\.)?[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+)){1,3}))?$/);
+		if (!match) return parseError('Invalid swap statement');
+	
+		var tile = parseValue(match[1]);
 		if (!validTile(tile)) return parseError('Invalid tile identifier');
-		
+	
 		var block = currentBlock();
 		if (!block) return;
-		block.push(['swap', tile]);
+		var swap = ['swap', tile]
+
+		block.push(swap);
+		if (match[2]) {
+			var rect = parseValue(match[2]);
+			swap.push(rect);
+		}
 	}
 	function parseFrame(line) { // setter only, getter is in parseValue :disappointed
 		var frame = line.match(/^frame\s+([0-9]+|(?:event\.)?[a-zA-Z_][a-zA-Z0-9_]*)$/);
@@ -3461,7 +3482,13 @@ function onDataReady() {
 		updatedData = true;
 	}
 	if (data.editor.activeSongId>data.songs.length-1) {
+		print('recover from bad song meta');
 		data.editor.activeSongId = 0;
+		updatedData = true;
+	}
+	if (data.editor.activeSoundId>data.sounds.length-1) {
+		print('recover from bad sound meta');
+		data.editor.activeSoundId = 0;
 		updatedData = true;
 	}
     
@@ -3474,6 +3501,19 @@ function onDataReady() {
 	if (!isset(data.buildNumber)) {
 		print('added build number')
 		data.buildNumber = 1
+		updatedData = true;
+	}
+	
+	if (!isset(data.icon)) {
+		print('adding icon to data format');
+		data.icon = -1;
+		data.editor.showIcon = false;
+		updatedData = true;
+	}
+	if (!isset(data.wrap)) {
+		print('adding wrap to data format');
+		data.wrap = -1;
+		data.editor.showWrap = false;
 		updatedData = true;
 	}
 	
@@ -3520,6 +3560,13 @@ function onDataReady() {
 	var frameImage = one('#frame');
 	
 	var previewImage = one('#preview');
+	var wrappingImage = one('#wrapping');
+	var iconImage = one('#launcher-icon');
+	
+	var iconCanvas = document.createElement('canvas');
+	var iconContext = iconCanvas.getContext('2d');
+	iconCanvas.width = tileWidth * 2;
+	iconCanvas.height = tileHeight * 2;
 	
 	var playerCanvas = document.createElement('canvas');
 	window.playerContext = playerCanvas.getContext('2d');
@@ -3560,6 +3607,8 @@ function onDataReady() {
 	var gameIntro = one('#game-intro');
 	var gameSongSelect = one('#game-song-select');
 	var gameCardSelect = one('#game-card-select');
+	var gameIconSelect = one('#game-icon-select');
+	var gameWrapSelect = one('#game-wrap-select');
 	var roomName = one('#room-name');
 	var tileName = one('#tile-name');
 	var scriptName = one('#script-name');
@@ -3793,8 +3842,8 @@ function onDataReady() {
 	frameImage.width = tileWidth * tileEditorScale;
 	frameImage.height = tileHeight * tileEditorScale;
 	
-	previewImage.width = roomWidth * 2;
-	previewImage.height = roomHeight * 2;
+	previewImage.width = wrappingImage.width = roomWidth * 2;
+	previewImage.height = wrappingImage.height = roomHeight * 2;
 
 	roomCanvas.width = highlightCanvas.width = roomWidth;
 	roomCanvas.height = highlightCanvas.height = roomHeight;
@@ -3821,15 +3870,11 @@ function onDataReady() {
 	tileFrames.style.maxWidth = (tileEditorScale * 5) + 'px';
 	tileFrames.style.minWidth = tileEditorScale + 'px';
 	tileFrames.style.minHeight = tileEditorScale + 'px';
-	if (data.editor.showGrid) {
-		document.body.classList.add('show-grid');
-	}
-	if (data.editor.showWalls) {
-		document.body.classList.add('show-walls');
-	}
-	if (data.editor.showCard) {
-		document.body.classList.add('show-card');
-	}
+	if (data.editor.showGrid) document.body.classList.add('show-grid');
+	if (data.editor.showWalls) document.body.classList.add('show-walls');
+	if (data.editor.showCard) document.body.classList.add('show-card');
+	if (data.editor.showIcon) document.body.classList.add('show-icon');
+	if (data.editor.showWrap) document.body.classList.add('show-wrap');
 	
 	fontImage.width = roomImage.width;
 	fontImage.height = roomImage.height;
@@ -4863,9 +4908,55 @@ function onDataReady() {
 		pushRoomToContext(data.card, false, true);
 		previewImage.src = roomCanvas.toDataURL('image/png');
 	}
+	function renderIcon() {
+		if (data.icon==-1) {
+			iconImage.src = urls.shared + 'images/icon.png';
+		}
+		else {
+			iconContext.clearRect(0, 0, iconCanvas.width, iconCanvas.height);
+			
+			// based on pushRoomToContext()
+			var roomData = data.rooms[data.icon];
+			var roomTiles = roomData.tiles;
+			for (var y=0; y<2; y++) {
+				for (var x=0; x<2; x++) {
+					var i = (2+y) * roomTilesWide + (1+x);
+					var tileId = roomTiles[i];
+					var tile = data.tiles[tileId];
+					var tileFrames = tile.frames;
+					var j = tileFrames[0];
+					var imageData = frameImageDatas[j];
+					
+					var dx = x*tileWidth;
+					var dy = y*tileHeight;
+					var sx = 0;
+					var sy = 0;
+					var sw = tileWidth - 1;
+					var sh = tileHeight - 1;
+				
+					if (x==0) sx += 1;
+					if (y==0) sy += 1;
+				
+					blitImageData(iconContext,imageData, dx,dy, sx,sy,sw,sh);
+				}
+			}
+			iconImage.src = iconCanvas.toDataURL('image/png');
+		}
+	}
+	function renderWrap() {
+		if (data.wrap==-1) {
+			wrappingImage.src = urls.shared + 'images/wrapping-pattern.png';
+		}
+		else {
+			pushRoomToContext(data.wrap, false, true);
+			wrappingImage.src = roomCanvas.toDataURL('image/png');
+		}
+	}
 	function renderGame() {
 		renderTitle();
 		renderCard();
+		renderIcon();
+		renderWrap();
 
 		gameName.value = data.name;
 		gameFile.innerHTML = data.name;
@@ -4874,6 +4965,8 @@ function onDataReady() {
 		gameBuildNumber.value = data.buildNumber
 		gameIntro.value = data.intro;
 		setSelectValue(gameCardSelect, data.card);
+		setSelectValue(gameIconSelect, data.icon); // optional
+		setSelectValue(gameWrapSelect, data.wrap); // optional
 		
 		var tilesHTML = '';
 		for (var i=0; i<2; i++) {
@@ -5129,10 +5222,14 @@ function onDataReady() {
 		}
 		roomSelect.innerHTML = optionsHTML;
 		gameCardSelect.innerHTML = optionsHTML;
+		gameIconSelect.innerHTML = '<li data-value="-1">none</li>'+optionsHTML;
+		gameWrapSelect.innerHTML = '<li data-value="-1">none</li>'+optionsHTML;
 		exitSelect.innerHTML  = '<li data-value="-1">nowhere</li>'+optionsHTML;
 		
 		syncSelect(roomSelect);
 		syncSelect(gameCardSelect);
+		syncSelect(gameIconSelect);
+		syncSelect(gameWrapSelect);
 		syncSelect(exitSelect);
 
 		setSelectValue(roomSelect, data.editor.activeRoomId);
@@ -5286,6 +5383,8 @@ function onDataReady() {
 		var room = data.rooms[roomId];
 		
 		document.body.classList[room.id==data.card?'add':'remove']('is-card');
+		document.body.classList[room.id==data.icon?'add':'remove']('is-icon');
+		document.body.classList[room.id==data.wrap?'add':'remove']('is-wrap');
 		
 		data.editor.activeRoomId = roomId;
 		roomName.value = room.name;
@@ -5480,7 +5579,11 @@ function onDataReady() {
 	function updateAudioSource() {
 		// NOTE: I dislike everything about this...
 		if (audioSource.notes==null || data.editor.activeModeId==EditorMode.Song) {
-			var song = data.songs[data.editor.activeSongId];
+			var songId = data.editor.activeSongId;
+			if (!data.songs[songId]) songId = getFirstValidIndex(data.songs);
+			data.editor.activeSongId = songId;
+			
+			var song = data.songs[songId];
 			audioSource.type = AudioSource.Song;
 			audioSource.source = song;
 			audioSource.voice = data.editor.activeVoiceId;
@@ -5488,7 +5591,11 @@ function onDataReady() {
 			audioSource.notes = song.notes[audioSource.voice];
 		}
 		else if (data.editor.activeModeId==EditorMode.Sound) {
-			var sound = data.sounds[data.editor.activeSoundId];
+			var soundId = data.editor.activeSoundId;
+			if (!data.sounds[soundId]) soundId = getFirstValidIndex(data.sounds);
+			data.editor.activeSoundId = soundId;
+			
+			var sound = data.sounds[soundId];
 			audioSource.type = AudioSource.Sound;
 			audioSource.source = sound;
 			audioSource.voice = sound.type;
@@ -5536,6 +5643,8 @@ function onDataReady() {
 		
 		if (modeId==EditorMode.Game) {
 			renderCard();
+			renderIcon();
+			renderWrap();
 		}
 		else if (modeId==EditorMode.Font) {
 			renderText();
@@ -7810,7 +7919,7 @@ function onDataReady() {
 	function setActiveSong(songId) {
 		if (!keyVoices) return;
 		
-		if (!data.songs[songId]) songId = 0;
+		if (!data.songs[songId]) songId = getFirstValidIndex(data.songs);
 		
 		data.editor.activeSongId = songId;
 		updateAudioSource();
@@ -8149,6 +8258,8 @@ function onDataReady() {
 	function setActiveSound(soundId) {
 		if (!keyVoices) return;
 		
+		if (!data.sounds[soundId]) soundId = getFirstValidIndex(data.sounds);
+		
 		data.editor.activeSoundId = soundId;
 		updateAudioSource();
 		
@@ -8254,6 +8365,43 @@ function onDataReady() {
 			});
 		}
 	});
+	bindSelect(gameIconSelect, 'select', function() {
+		var oldId = data.icon;
+		var newId = parseInt(getSelectValue(gameIconSelect));
+		if (newId!=oldId) {
+			function tidy() {
+				document.body.classList[data.editor.activeRoomId==data.icon?'add':'remove']('is-icon');
+				setSelectValue(gameIconSelect, data.icon);
+				renderIcon();
+			}
+			pushHistory('set game icon', function() {
+				data.icon = newId;
+				tidy();
+			},function() {
+				data.icon = oldId;
+				tidy();
+			});
+		}
+	});
+	bindSelect(gameWrapSelect, 'select', function() {
+		var oldId = data.wrap;
+		var newId = parseInt(getSelectValue(gameWrapSelect));
+		if (newId!=oldId) {
+			function tidy() {
+				document.body.classList[data.editor.activeRoomId==data.wrap?'add':'remove']('is-wrap');
+				setSelectValue(gameWrapSelect, data.wrap);
+				renderWrap();
+			}
+			pushHistory('set game wrap', function() {
+				data.wrap = newId;
+				tidy();
+			},function() {
+				data.wrap = oldId;
+				tidy();
+			});
+		}
+	});
+	
 	bindSelect(roomSelect, 'select', UI_changeRoom);
 	bindSelect(exitSelect, 'select', function onSelectExit(event) {
 		var exit = getExit();
@@ -9325,6 +9473,50 @@ function onDataReady() {
 			cleanup();
 		}, false, true);
 	});
+	bind(one('#toggle-icon'), 'click', function(event) {
+		var oldValue = data.editor.showIcon;
+		var newValue = !oldValue;
+		
+		print('toggle icon!');
+		
+		function cleanup() {
+			if (data.editor.showIcon) {
+				document.body.classList.add('show-icon');
+			}
+			else {
+				document.body.classList.remove('show-icon');
+			}
+		}
+		
+		pushHistory('toggle icon mask', function() {
+			data.editor.showIcon = newValue;
+			cleanup();
+		},function() {
+			data.editor.showIcon = oldValue;
+			cleanup();
+		}, false, true);
+	});
+	bind(all('#toggle-wrap,#toggle-wrap-game'), 'click', function(event) {
+		var oldValue = data.editor.showWrap;
+		var newValue = !oldValue;
+		
+		function cleanup() {
+			if (data.editor.showWrap) {
+				document.body.classList.add('show-wrap');
+			}
+			else {
+				document.body.classList.remove('show-wrap');
+			}
+		}
+		
+		pushHistory('toggle wrap mask', function() {
+			data.editor.showWrap = newValue;
+			cleanup();
+		},function() {
+			data.editor.showWrap = oldValue;
+			cleanup();
+		}, false, true);
+	});
 	function UI_changeMode(modeId) {
 		var oldModeId = data.editor.activeModeId;
 		var newModeId = modeId;
@@ -9578,6 +9770,36 @@ function onDataReady() {
 	bind(one('#edit-card-room'), 'click', function(event) {
 		var oldRoomId = data.editor.activeRoomId;
 		var newRoomId = data.card;
+		var oldModeId = EditorMode.Script;
+		var newModeId = EditorMode.Room;
+		pushHistory('goto room', function() {
+			setActiveRoom(newRoomId);
+			setActiveMode(newModeId);
+		},function() {
+			setActiveRoom(oldRoomId);
+			setActiveMode(oldModeId);
+		}, false, true);
+	});
+	bind(one('#edit-icon-room'), 'click', function(event) {
+		var oldRoomId = data.editor.activeRoomId;
+		var newRoomId = data.icon;
+		if (newRoomId==-1) return;
+		
+		var oldModeId = EditorMode.Script;
+		var newModeId = EditorMode.Room;
+		pushHistory('goto room', function() {
+			setActiveRoom(newRoomId);
+			setActiveMode(newModeId);
+		},function() {
+			setActiveRoom(oldRoomId);
+			setActiveMode(oldModeId);
+		}, false, true);
+	});
+	bind(one('#edit-wrap-room'), 'click', function(event) {
+		var oldRoomId = data.editor.activeRoomId;
+		var newRoomId = data.wrap;
+		if (newRoomId==-1) return;
+		
 		var oldModeId = EditorMode.Script;
 		var newModeId = EditorMode.Room;
 		pushHistory('goto room', function() {
