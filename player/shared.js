@@ -1,4 +1,3 @@
-/* shared.6c7bc8f7e55b.js */
 var print = console.log;
 function isset(varvalue) {
 	return !(typeof varvalue==='undefined' || varvalue===null);

@@ -1,4 +1,3 @@
-/* bridge.a4351a036091.js */
 print = printT = console.log;
 
 math = Math;

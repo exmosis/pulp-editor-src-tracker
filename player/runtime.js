@@ -1,4 +1,3 @@
-/* runtime.14dfcdc1cffc.js */
 // DO NOT MODIFY MANUALLY
 // (transpiled from Source/runtime.lua by PulpRuntime/make/lua2js.php)
 
@@ -1177,7 +1176,15 @@ var hidePlayer = false
 		if ( ! LuaTrue( tile ) ) { return }
 		
 		var event = getEvent()
-		if ( LuaTrue( event.self===player.tile ) ) {
+		if ( LuaTrue( args[idx(3)] ) && LuaTrue( args[idx(3)][idx(1)]==='xy' ) ) { // TODO: sometimes swap has a block in the third position?
+			var pos = getXY(args[idx(3)])
+			var roomIndex = pos.y * roomTilesWide + pos.x + 1
+
+			clearPlayTimer(roomIndex)
+			data.rooms[idx(activeRoomId)].tiles[idx(roomIndex)] = tile.id
+			roomFrames[idx(roomIndex)] = 1
+			event.self = tile
+		} else if ( LuaTrue( event.self===player.tile ) ) {
 			player.id = tile.id
 			player.frame = null
 			clearPlayTimer(playerIndex)
@@ -1260,7 +1267,6 @@ var hidePlayer = false
 				return
 			}
 		}
-	
 		var tile = getTile(doValue(target))
 		var i = getRoomIndex(tile)
 		var event = newEvent(null, tile,i)
@@ -1847,8 +1853,12 @@ var hidePlayer = false
 		return value
 	}
 	function doAction(args) {
-		if ( LuaTrue( args===-1 ) ) { return } // newline
+		if ( ! LuaTrue( args ) || LuaTrue( args===-1 ) ) { return } // newline
 		if ( LuaTrue( callstackDepth===returnDepth ) ) { return }
+		
+		if ( LuaTrue( data.commands ) && LuaTrue( isNumber(args) ) ) {
+			args = data.commands[idx(args+1)]
+		}
 		
 		var action = args[idx(1)]
 		if ( ! LuaTrue( Action[idx(action)] ) ) { return print('unknown action:', action) }
@@ -2462,12 +2472,12 @@ var loadAudio = function() {
 		var song = data.songs[idx(i)];
 		if ( ! LuaTrue( song ) ) { continue }
 		songsByName[idx(song.name)] = song
-		song.splits = null // unneeded
+		if ( LuaTrue( song.splits ) ) { song.splits = null } // unneeded
 		
 		
 	}
 }
-var onDataReady = function() {
+function onDataReady() {
 	cacheBitmaps()
 	
 	loadAudio()
@@ -2477,12 +2487,16 @@ var onDataReady = function() {
 		var script = data.scripts[idx(i)]
 		if ( ! LuaTrue( script ) ) { continue }
 		
-		if ( LuaTrue( script.data ) && LuaTrue( script.data.__srcOrder.length>0 ) ) {
-			script.data.__srcOrder = null
-			script.data.__comments = null
-			data.scripts[idx(i)] = script.data
+		if ( LuaTrue( script.__blocks ) ) { // already flattened by PulpCompiler
+			// buh
 		} else {
-			data.scripts[idx(i)] = false
+			if ( LuaTrue( script.data ) && LuaTrue( script.data.__srcOrder.length>0 ) ) {
+				script.data.__srcOrder = null
+				script.data.__comments = null
+				data.scripts[idx(i)] = script.data
+			} else {
+				data.scripts[idx(i)] = false
+			}
 		}
 		
 		
