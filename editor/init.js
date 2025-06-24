@@ -152,13 +152,3 @@ document.addEventListener("DOMContentLoaded", function() {
         window.addEventListener("orientationChange", lazyload);
     }
 });
-
-// Detect Global Privacy Control
-if (navigator.globalPrivacyControl == null) {
-    var plausibleJS = document.createElement("script");
-    plausibleJS.async = true;
-    plausibleJS.defer = true;
-    plausibleJS.dataset.domain = "play.date";
-    plausibleJS.src = "https://plausible.io/js/script.js";
-    body.appendChild(plausibleJS);
-}
