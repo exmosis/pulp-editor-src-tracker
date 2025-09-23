@@ -8846,7 +8846,7 @@ function onDataReady() {
 						var imageData = fontContext.getImageData(cx*tileWidth,cy*tileHeight,tileWidth,tileHeight).data;
 						var pixels = [];
 						for (var j=0; j<imageData.length; j+=4) {
-							pixels[j/4] = imageData[j]==0?1:0;
+							pixels[j/4] = imageData[j]<128?1:0;
 						}
 						return pixels;
 					}
@@ -9078,7 +9078,7 @@ function onDataReady() {
 				for (var j=0; j<imageData.length; j+=4) {
 					var empty = imageData[j+3]==0;
 					if (empty) empties += 1;
-					pixels[j/4] = empty ? 2 : (imageData[j]==0?1:0);
+					pixels[j/4] = empty ? 2 : (imageData[j]<128?1:0);
 				}
 				return pixels;
 			}
