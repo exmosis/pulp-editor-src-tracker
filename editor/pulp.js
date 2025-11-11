@@ -294,6 +294,14 @@ function deleteRoom(roomId) {
 		deleteScript(room.script);
 	}
 	
+    // reset icon/wrap if necessary
+    if (data.icon==roomId) {
+        data.icon = -1;
+    }
+    else if (data.wrap==roomId) {
+        data.wrap = -1;
+    }
+    
 	data.rooms[roomId] = false;
 	tidyTail(data.rooms);
 }
